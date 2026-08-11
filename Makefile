@@ -1,9 +1,16 @@
 SHELL := /bin/sh
 
-.PHONY: init up down status logs test backup update validate
+.PHONY: init build rebuild up down status logs test backup update validate
 
 init:
 	./scripts/init.sh
+
+build:
+	./scripts/build.sh
+
+rebuild:
+	./scripts/build.sh --pull
+	./scripts/start.sh
 
 up:
 	./scripts/start.sh

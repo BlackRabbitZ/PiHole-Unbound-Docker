@@ -19,26 +19,32 @@ if ! docker compose version >/dev/null 2>&1; then
     exit 1
 fi
 
-[ -s secrets/pihole_webpassword.txt ] || {
-    echo "FEHLER: Secret fehlt. Zuerst ./scripts/init.sh ausführen." >&2
-    exit 1
-}
+if [ ! -f .env ]; then
+    cp .env.example .env
+    echo "[+] .env aus .env.example erstellt"
+fi
 
 docker compose config --quiet
 
 case "${1:-}" in
     "")
-        docker compose up -d
+        echo "[+] Baue Pi-hole- und Unbound-Images ..."
+        docker compose build
         ;;
-    --build)
-        docker compose up -d --build
+    --pull)
+        echo "[+] Baue Images und prüfe Basis-Images erneut ..."
+        docker compose build --pull
+        ;;
+    pihole|unbound)
+        echo "[+] Baue Service: $1"
+        docker compose build "$1"
         ;;
     *)
-        echo "Verwendung: $0 [--build]" >&2
+        echo "Verwendung: $0 [--pull|pihole|unbound]" >&2
         exit 2
         ;;
 esac
 
 echo ""
-echo "Container gestartet. Status:"
-docker compose ps
+echo "Build abgeschlossen. Images:"
+docker compose images
