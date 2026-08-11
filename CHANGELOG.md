@@ -1,5 +1,12 @@
 # Changelog
 
+
+## [1.0.2] - 2026-08-11
+
+### Fixed
+- Seed the packaged DNSSEC root trust anchor during the Unbound image build so `unbound-checkconf` can validate the configuration successfully.
+- Runtime behavior remains unchanged: `entrypoint.sh` still recreates/updates the trust anchor in the persistent `/var/lib/unbound` volume when needed.
+
 ## [1.0.1] - 2026-08-11
 
 ### Fixed
