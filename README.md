@@ -1,89 +1,167 @@
-# Pi-hole + Unbound in Docker
+<div align="center">
 
-Ein reproduzierbares und gehärtetes Docker-Setup für **Pi-hole v6** als DNS-Filter vor einem eigenen **rekursiven Unbound-Resolver**.
+# 🛡️ Pi-hole + Unbound in Docker
 
-> Original work: PiHole-Unbound-Docker by BlackRabbitZ  
-> Original repository: https://github.com/BlackRabbitZ/PiHole-Unbound-Docker
+### Privacy-first DNS filtering with your own recursive resolver
 
-## Übersicht
+**Pi-hole v6 · Unbound · Docker Compose · DNSSEC · Hardening · Backups**
+
+[![Validate](https://github.com/BlackRabbitZ/PiHole-Unbound-Docker/actions/workflows/validate.yml/badge.svg)](https://github.com/BlackRabbitZ/PiHole-Unbound-Docker/actions/workflows/validate.yml)
+[![License](https://img.shields.io/github/license/BlackRabbitZ/PiHole-Unbound-Docker?style=flat-square)](LICENSE)
+[![Last Commit](https://img.shields.io/github/last-commit/BlackRabbitZ/PiHole-Unbound-Docker?style=flat-square)](https://github.com/BlackRabbitZ/PiHole-Unbound-Docker/commits/main)
+[![Stars](https://img.shields.io/github/stars/BlackRabbitZ/PiHole-Unbound-Docker?style=flat-square)](https://github.com/BlackRabbitZ/PiHole-Unbound-Docker/stargazers)
+[![Issues](https://img.shields.io/github/issues/BlackRabbitZ/PiHole-Unbound-Docker?style=flat-square)](https://github.com/BlackRabbitZ/PiHole-Unbound-Docker/issues)
+[![Docker Compose](https://img.shields.io/badge/Docker%20Compose-v2-2496ED?logo=docker&logoColor=white&style=flat-square)](https://docs.docker.com/compose/)
+[![Pi-hole](https://img.shields.io/badge/Pi--hole-v6-96060C?logo=pihole&logoColor=white&style=flat-square)](https://pi-hole.net/)
+[![Unbound](https://img.shields.io/badge/Resolver-Unbound-2E3440?style=flat-square)](https://nlnetlabs.nl/projects/unbound/about/)
+
+Ein reproduzierbares und gehärtetes Docker-Setup für **Pi-hole** als netzwerkweiten DNS-Filter vor einem eigenen **rekursiven Unbound-Resolver**.
+
+[Installation](#-installation) · [Build](#-docker-images-bauen) · [Architektur](#-architektur) · [Betrieb](#-betrieb) · [Dokumentation](#-dokumentation) · [Sicherheit](#-sicherheit)
+
+</div>
+
+---
+
+## ✨ Warum dieses Projekt?
+
+Viele Pi-hole-Installationen leiten erlaubte DNS-Anfragen an öffentliche Resolver wie Google, Cloudflare oder Quad9 weiter. Dieses Projekt verfolgt einen anderen Ansatz:
+
+> **Pi-hole filtert. Unbound löst selbst rekursiv auf.**
+
+Damit bleibt die DNS-Auflösung unter eigener Kontrolle. Pi-hole übernimmt Filterung und Weboberfläche, während Unbound Domains direkt über Root-, TLD- und autoritative DNS-Server auflöst und DNSSEC validiert.
+
+### Highlights
+
+| Bereich | Umsetzung |
+|---|---|
+| 🧱 **Deployment** | Docker Compose v2 mit getrennten Pi-hole- und Unbound-Images |
+| 🔍 **DNS-Filterung** | Pi-hole v6 für Werbung, Tracking und unerwünschte Domains |
+| 🌐 **DNS-Auflösung** | Eigener rekursiver Unbound-Resolver ohne öffentlichen Upstream |
+| 🔐 **DNSSEC** | Validierung durch Unbound |
+| 🛡️ **Hardening** | Read-only Unbound-Filesystem, `no-new-privileges`, reduzierte Angriffsfläche |
+| 🔑 **Secrets** | Pi-hole-Webpasswort über Docker Secret |
+| 💾 **Persistenz** | Pi-hole-Konfiguration und Unbound-Trust-Anchor persistent gespeichert |
+| 🧪 **Health Checks** | Status-, DNS- und DNSSEC-Tests über Skripte |
+| 📦 **Backups** | Backup- und Restore-Workflow enthalten |
+| ✅ **CI** | Automatische Konfigurations- und Build-Prüfung mit GitHub Actions |
+
+---
+
+## 🧭 Inhaltsverzeichnis
+
+- [Architektur](#-architektur)
+- [Sicherheitsmerkmale](#-sicherheitsmerkmale)
+- [Voraussetzungen](#-voraussetzungen)
+- [Installation](#-installation)
+- [Docker installieren](#1-docker-installieren)
+- [Repository klonen](#2-repository-klonen)
+- [Projekt initialisieren](#3-projekt-initialisieren)
+- [Docker-Images bauen](#-docker-images-bauen)
+- [Container erstellen und starten](#-container-erstellen-und-starten)
+- [Installation prüfen](#-installation-prüfen)
+- [Pi-hole-Weboberfläche](#-pi-hole-weboberfläche)
+- [Router und Clients konfigurieren](#-router-und-clients-konfigurieren)
+- [Konfiguration](#️-konfiguration)
+- [Betrieb](#-betrieb)
+- [Updates](#-updates)
+- [Backup und Restore](#-backup-und-restore)
+- [Sicherheit](#-sicherheit)
+- [Projektstruktur](#-projektstruktur)
+- [Dokumentation](#-dokumentation)
+- [Lizenz und Attribution](#-lizenz-und-attribution)
+
+---
+
+## 🏗️ Architektur
 
 ```text
-Clients / Router
-      │
-      │ DNS :53 TCP/UDP
-      ▼
-┌───────────────┐
-│    Pi-hole    │
-│ Blocking + UI │
-└───────┬───────┘
-        │ Docker-intern: unbound:5335
-        ▼
-┌───────────────┐
-│    Unbound    │
-│ Recursive DNS │
-│ DNSSEC        │
-└───────┬───────┘
-        │
-        ├── Root DNS
-        ├── TLD DNS
-        └── Authoritative DNS
+                    ┌────────────────────────────┐
+                    │      Clients / Router      │
+                    └─────────────┬──────────────┘
+                                  │
+                           DNS :53 TCP/UDP
+                                  │
+                                  ▼
+                    ┌────────────────────────────┐
+                    │          Pi-hole           │
+                    │                            │
+                    │  • DNS Filtering           │
+                    │  • Blocklists              │
+                    │  • Query Logging           │
+                    │  • Web UI                  │
+                    └─────────────┬──────────────┘
+                                  │
+                         Docker-intern
+                         unbound:5335
+                                  │
+                                  ▼
+                    ┌────────────────────────────┐
+                    │          Unbound           │
+                    │                            │
+                    │  • Recursive DNS           │
+                    │  • DNSSEC Validation       │
+                    │  • Cache + Prefetch        │
+                    │  • QNAME Minimization      │
+                    └─────────────┬──────────────┘
+                                  │
+                 ┌────────────────┼────────────────┐
+                 ▼                ▼                ▼
+             Root DNS          TLD DNS      Authoritative DNS
 ```
 
-Pi-hole filtert DNS-Anfragen und leitet erlaubte Abfragen nicht an einen öffentlichen Resolver wie Google oder Cloudflare weiter. Stattdessen fragt Pi-hole den lokalen Unbound-Container ab. Unbound löst Domains rekursiv über die DNS-Hierarchie auf und validiert DNSSEC.
+### DNS-Fluss
 
-## Inhaltsverzeichnis
+```text
+Client → Pi-hole → Unbound → DNS-Hierarchie → Unbound → Pi-hole → Client
+```
 
-- [Funktionen](#funktionen)
-- [Voraussetzungen](#voraussetzungen)
-- [Schnellinstallation](#schnellinstallation)
-- [Docker installieren](#docker-installieren)
-- [Images bauen](#images-bauen)
-- [Container erstellen und starten](#container-erstellen-und-starten)
-- [Installation prüfen](#installation-prüfen)
-- [Pi-hole-Weboberfläche](#pi-hole-weboberfläche)
-- [Clients und Router konfigurieren](#clients-und-router-konfigurieren)
-- [Konfiguration](#konfiguration)
-- [Betrieb](#betrieb)
-- [Updates](#updates)
-- [Backup und Restore](#backup-und-restore)
-- [Sicherheit und Datenschutz](#sicherheit-und-datenschutz)
-- [Projektstruktur](#projektstruktur)
-- [Lizenz und Attribution](#lizenz-und-attribution)
+Unbound wird **nicht direkt am Host veröffentlicht**. Nur Pi-hole kann den Resolver über das interne Docker-Netz erreichen.
 
-## Funktionen
+---
 
-- Pi-hole Docker Release bewusst gepinnt
-- Unbound wird lokal aus Alpine Linux und dem Alpine-Unbound-Paket gebaut
-- Rekursive DNS-Auflösung ohne öffentlichen Upstream-Resolver
+## 🛡️ Sicherheitsmerkmale
+
+Das Setup ist bewusst restriktiver als eine minimale Standardinstallation:
+
+- gepinntes Pi-hole-Basisimage statt unkontrolliertem `latest`
+- eigener lokal gebauter Unbound-Container
 - DNSSEC-Validierung durch Unbound
 - QNAME-Minimierung
-- DNS-Rebinding-/Private-Address-Härtung
-- EDNS-Puffergröße 1232 Byte
+- DNS-Rebinding- und Private-Address-Härtung
+- EDNS-Puffergröße von `1232` Byte
 - DNS-Cache und Prefetch
 - Rate-Limits
 - versteckte Unbound-Version und Identity
 - persistenter RFC5011-Trust-Anchor
 - read-only Root-Filesystem für Unbound
 - `no-new-privileges` für Unbound
+- keine unnötigen privilegierten Container-Rechte
 - Docker Secret für das Pi-hole-Webpasswort
 - persistente Pi-hole-Konfiguration
 - Docker-Logrotation
-- Backup- und Restore-Skripte
-- DNS-/DNSSEC-Selbsttest
-- automatisierte Konfigurations- und Build-Prüfungen über GitHub Actions
+- automatisierte Konfigurations- und Build-Prüfungen via GitHub Actions
 
-## Voraussetzungen
+> [!IMPORTANT]
+> Dieses Projekt erhöht die Kontrolle über DNS-Auflösung und Filterung. Es ersetzt keine Firewall, kein VPN, keine Endpoint-Security und keinen Browser-Schutz.
 
-Benötigt werden:
+---
 
-- Linux-Host, Server, NAS oder VM mit Docker-Unterstützung
-- Docker Engine oder Docker Desktop
-- Docker Compose v2 als `docker compose`
-- Git
-- freier Port `53/tcp` und `53/udp` auf dem Docker-Host
-- ausgehender DNS-Verkehr auf Port 53 TCP/UDP für die rekursive Auflösung
+## 📋 Voraussetzungen
 
-Prüfen:
+Empfohlen wird ein Linux-Host, Server, NAS oder eine VM mit Docker-Unterstützung.
+
+| Voraussetzung | Empfehlung |
+|---|---|
+| Docker | Docker Engine / Docker Desktop |
+| Compose | Docker Compose v2 (`docker compose`) |
+| Git | aktuelle Distribution-Version |
+| DNS-Port | `53/tcp` und `53/udp` müssen frei sein |
+| Netzwerk | ausgehender DNS-Verkehr über TCP/UDP Port 53 |
+| RAM | mindestens 512 MB frei, mehr empfohlen |
+| Architektur | typischerweise `amd64` oder `arm64` |
+
+Versionen prüfen:
 
 ```bash
 docker --version
@@ -91,72 +169,79 @@ docker compose version
 git --version
 ```
 
-Unter Linux kann beispielsweise `systemd-resolved` Port 53 belegen. Hinweise dazu stehen in `docs/TROUBLESHOOTING.md`.
+> [!WARNING]
+> Unter Linux kann beispielsweise `systemd-resolved` Port 53 belegen. Prüfe vor dem Start, ob DNS-Port 53 bereits verwendet wird. Weitere Hinweise findest du unter [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md).
 
-## Schnellinstallation
+---
 
-Wenn Docker und Docker Compose bereits installiert sind:
+# 🚀 Installation
 
-```bash
-git clone https://github.com/BlackRabbitZ/PiHole-Unbound-Docker.git
-cd PiHole-Unbound-Docker
-chmod +x scripts/*.sh unbound/entrypoint.sh
-./scripts/init.sh
-```
+## 1. Docker installieren
 
-Danach `.env` kontrollieren:
+Das Projekt benötigt **Docker Engine** und **Docker Compose v2**.
 
-```bash
-nano .env
-```
+Für Debian/Ubuntu empfiehlt sich die Installation über das offizielle Docker-Paketrepository. Eine vollständige Schritt-für-Schritt-Anleitung befindet sich in:
 
-Images bauen:
+**➡️ [`docs/INSTALLATION.md`](docs/INSTALLATION.md)**
 
-```bash
-./scripts/build.sh
-```
-
-Container erstellen und starten:
-
-```bash
-./scripts/start.sh
-```
-
-Status prüfen:
-
-```bash
-./scripts/status.sh
-```
-
-DNS und DNSSEC testen:
-
-```bash
-./scripts/test-dns.sh
-```
-
-Die ausführliche Schritt-für-Schritt-Anleitung befindet sich in **[`docs/INSTALLATION.md`](docs/INSTALLATION.md)**.
-
-## Docker installieren
-
-Das Projekt benötigt Docker Engine und Docker Compose v2. Für produktive Linux-Systeme sollte Docker über das offizielle Docker-Paketrepository installiert werden.
-
-Nach der Installation müssen diese Befehle funktionieren:
+Nach der Installation müssen folgende Befehle ohne Fehler funktionieren:
 
 ```bash
 docker --version
 docker compose version
 ```
 
-Eine ausführliche Anleitung für Debian und Ubuntu sowie Hinweise für andere Plattformen findest du in **[`docs/INSTALLATION.md`](docs/INSTALLATION.md)**.
+Optional kannst du prüfen, ob Docker grundsätzlich funktioniert:
 
-## Images bauen
+```bash
+docker run --rm hello-world
+```
 
-Dieses Repository verwendet zwei Docker-Images:
+---
 
-1. **Pi-hole** auf Basis des in `pihole/Dockerfile` gepinnten offiziellen Pi-hole-Images.
-2. **Unbound** auf Basis des in `unbound/Dockerfile` definierten Alpine-Images.
+## 2. Repository klonen
 
-Beide Images bauen:
+```bash
+git clone https://github.com/BlackRabbitZ/PiHole-Unbound-Docker.git
+cd PiHole-Unbound-Docker
+```
+
+Skripte ausführbar machen:
+
+```bash
+chmod +x scripts/*.sh unbound/entrypoint.sh
+```
+
+---
+
+## 3. Projekt initialisieren
+
+```bash
+./scripts/init.sh
+```
+
+Das Initialisierungsskript erstellt beziehungsweise vorbereitet unter anderem die lokale `.env`-Konfiguration und benötigte Secret-Dateien.
+
+Anschließend die Konfiguration kontrollieren:
+
+```bash
+nano .env
+```
+
+Mindestens Zeitzone, Ports und Bind-Adresse sollten zum eigenen Netzwerk passen.
+
+---
+
+# 🏭 Docker-Images bauen
+
+Dieses Repository verwendet **zwei lokal gebaute Images**:
+
+| Service | Dockerfile | Aufgabe |
+|---|---|---|
+| `pihole` | `pihole/Dockerfile` | DNS-Filter, Blocklisten und Weboberfläche |
+| `unbound` | `unbound/Dockerfile` | rekursive DNS-Auflösung und DNSSEC |
+
+### Beide Images bauen
 
 ```bash
 ./scripts/build.sh
@@ -168,34 +253,46 @@ Alternativ direkt mit Docker Compose:
 docker compose build
 ```
 
-Mit erneuter Prüfung der Base-Images:
+### Base-Images vorher aktualisieren
 
 ```bash
 ./scripts/build.sh --pull
 ```
 
-Oder:
+oder:
 
 ```bash
 docker compose build --pull
 ```
 
-Nur ein einzelnes Image bauen:
+### Nur einen Service bauen
+
+```bash
+./scripts/build.sh pihole
+./scripts/build.sh unbound
+```
+
+Alternativ:
 
 ```bash
 docker compose build pihole
 docker compose build unbound
 ```
 
-Vor dem Build kann die aufgelöste Compose-Konfiguration geprüft werden:
+### Compose-Konfiguration vor dem Build prüfen
 
 ```bash
 docker compose config
 ```
 
-## Container erstellen und starten
+> [!TIP]
+> Durch die Trennung von **Build** und **Start** kannst du Fehler beim Image-Build erkennen, bevor bestehende Container verändert werden.
 
-Nachdem die Images gebaut wurden:
+---
+
+# ▶️ Container erstellen und starten
+
+Nachdem die Images erfolgreich gebaut wurden:
 
 ```bash
 ./scripts/start.sh
@@ -207,54 +304,85 @@ Das entspricht im Wesentlichen:
 docker compose up -d
 ```
 
-Falls Build und Start bewusst in einem Schritt erfolgen sollen:
+Docker Compose erstellt beim ersten Start automatisch die benötigten Container, Netzwerke und Volumes.
+
+### Build und Start in einem Schritt
 
 ```bash
 ./scripts/start.sh --build
 ```
 
-Oder direkt:
+oder direkt:
 
 ```bash
 docker compose up -d --build
 ```
 
-Docker Compose erstellt dabei unter anderem:
-
-- den Container `blackrabbitz-unbound`
-- den Container `blackrabbitz-pihole`
-- das interne Docker-Netz `blackrabbitz-dns-backend`
-- das persistente Volume `blackrabbitz-unbound-state`
-
-Die persistente Pi-hole-Konfiguration liegt im lokalen Verzeichnis `./etc-pihole`.
-
-### Container neu erstellen
+### Container bewusst neu erstellen
 
 ```bash
 docker compose up -d --force-recreate
 ```
 
-### Container stoppen
+### Erwartete Komponenten
+
+| Komponente | Zweck |
+|---|---|
+| `blackrabbitz-pihole` | Pi-hole DNS + Weboberfläche |
+| `blackrabbitz-unbound` | rekursiver DNS-Resolver |
+| internes DNS-Netz | Kommunikation zwischen Pi-hole und Unbound |
+| Unbound-State-Volume | persistenter Resolver-/Trust-Anchor-State |
+| `./etc-pihole` | persistente Pi-hole-Konfiguration |
+
+---
+
+## ⚡ Schnellstart
+
+Wenn Docker und Docker Compose bereits installiert sind:
 
 ```bash
-./scripts/stop.sh
+git clone https://github.com/BlackRabbitZ/PiHole-Unbound-Docker.git
+cd PiHole-Unbound-Docker
+chmod +x scripts/*.sh unbound/entrypoint.sh
+
+./scripts/init.sh
+nano .env
+
+./scripts/build.sh
+./scripts/start.sh
+./scripts/status.sh
+./scripts/test-dns.sh
 ```
 
-Oder:
+Oder mit `make`:
 
 ```bash
-docker compose down
+make init
+make build
+make up
+make status
+make test
 ```
 
-## Installation prüfen
+---
 
-Containerstatus:
+## ✅ Installation prüfen
+
+### Containerstatus
 
 ```bash
 docker compose ps
 ```
 
-Logs:
+oder:
+
+```bash
+./scripts/status.sh
+```
+
+Beide Services sollten laufen beziehungsweise einen gesunden Status erreichen.
+
+### Logs anzeigen
 
 ```bash
 ./scripts/logs.sh
@@ -272,7 +400,7 @@ Nur Unbound:
 docker compose logs -f unbound
 ```
 
-DNS-/DNSSEC-Selbsttest:
+### DNS und DNSSEC testen
 
 ```bash
 ./scripts/test-dns.sh
@@ -286,48 +414,62 @@ dig @127.0.0.1 example.org
 
 Von einem anderen Gerät im LAN muss statt `127.0.0.1` die LAN-IP des Docker-Hosts verwendet werden.
 
-## Pi-hole-Weboberfläche
+---
 
-Standardmäßig:
+## 🌐 Pi-hole-Weboberfläche
+
+Standardmäßig erreichst du die Pi-hole-Oberfläche unter:
 
 ```text
 http://HOST-IP:8080/admin/
 ```
 
-Das bei der Initialisierung automatisch erzeugte Webpasswort liegt lokal in:
+Beispiel:
+
+```text
+http://192.168.178.10:8080/admin/
+```
+
+Das bei der Initialisierung erzeugte Webpasswort liegt lokal unter:
 
 ```text
 secrets/pihole_webpassword.txt
 ```
 
-Anzeigen:
+Passwort anzeigen:
 
 ```bash
 cat secrets/pihole_webpassword.txt
 ```
 
-Die Datei ist über `.gitignore` vom Commit ausgeschlossen und sollte nicht veröffentlicht werden.
+> [!CAUTION]
+> Secret-Dateien und Backups niemals in Git committen oder öffentlich teilen.
 
-## Clients und Router konfigurieren
+---
 
-Trage die LAN-IP des Docker-Hosts als DNS-Server in Router oder DHCP-Server ein.
+## 📡 Router und Clients konfigurieren
+
+Trage die **LAN-IP des Docker-Hosts** als DNS-Server in deinem Router oder DHCP-Server ein.
 
 Beispiel:
 
-```text
-Docker-Host:             192.168.178.10
-DNS-Server für Clients:  192.168.178.10
-```
+| Einstellung | Wert |
+|---|---|
+| Docker-Host | `192.168.178.10` |
+| DNS-Server für Clients | `192.168.178.10` |
+| Pi-hole Web UI | `http://192.168.178.10:8080/admin/` |
 
-Nicht die interne Docker-IP eines Containers verwenden.
+**Nicht** die interne Docker-IP eines Containers verwenden.
 
-Weitere Hinweise: [`docs/NETWORK.md`](docs/NETWORK.md).
+Weitere Hinweise findest du in [`docs/NETWORK.md`](docs/NETWORK.md).
 
-## Konfiguration
+---
 
-`./scripts/init.sh` kopiert `.env.example` automatisch nach `.env`, falls die Datei noch nicht existiert.
+## ⚙️ Konfiguration
 
-Wichtige Standardwerte:
+`./scripts/init.sh` kopiert `.env.example` automatisch nach `.env`, sofern die Datei noch nicht existiert.
+
+Wichtige Einstellungen:
 
 ```dotenv
 TZ=Europe/Berlin
@@ -343,49 +485,33 @@ UNBOUND_VERBOSITY=0
 
 ### Warum `PIHOLE_DNSSEC=false`?
 
-Unbound übernimmt bereits die DNSSEC-Validierung. Eine zweite Validierung in Pi-hole ist für dieses Design nicht erforderlich.
+Unbound übernimmt bereits die DNSSEC-Validierung. Eine zweite Validierung durch Pi-hole ist für dieses Design nicht erforderlich.
 
-### Warum wird Unbound nicht am Host veröffentlicht?
+### Warum wird Unbound nicht direkt veröffentlicht?
 
-Nur Pi-hole soll Unbound verwenden. Clients kommunizieren ausschließlich mit Pi-hole auf Port 53. Unbound ist über Port 5335 nur im internen Docker-Netz erreichbar.
+Clients sollen ausschließlich mit Pi-hole kommunizieren. Pi-hole erreicht Unbound intern über den Docker-Service und Port `5335`. Dadurch ist der rekursive Resolver nicht unnötig direkt im LAN erreichbar.
 
-## Betrieb
+---
 
-Nützliche Befehle:
+## 🧰 Betrieb
 
-```bash
-# Initialisierung
-./scripts/init.sh
+### Projekt-Skripte
 
-# Images bauen
-./scripts/build.sh
+| Aufgabe | Befehl |
+|---|---|
+| Initialisieren | `./scripts/init.sh` |
+| Images bauen | `./scripts/build.sh` |
+| Images mit Pull bauen | `./scripts/build.sh --pull` |
+| Container starten | `./scripts/start.sh` |
+| Build + Start | `./scripts/start.sh --build` |
+| Container stoppen | `./scripts/stop.sh` |
+| Status anzeigen | `./scripts/status.sh` |
+| Logs anzeigen | `./scripts/logs.sh` |
+| DNS/DNSSEC testen | `./scripts/test-dns.sh` |
+| Backup erstellen | `./scripts/backup.sh` |
+| Restore durchführen | `./scripts/restore.sh <backup.tar.gz>` |
 
-# Starten
-./scripts/start.sh
-
-# Build + Start
-./scripts/start.sh --build
-
-# Stoppen
-./scripts/stop.sh
-
-# Status
-./scripts/status.sh
-
-# Logs
-./scripts/logs.sh
-
-# DNS/DNSSEC testen
-./scripts/test-dns.sh
-
-# Backup
-./scripts/backup.sh
-
-# Restore
-./scripts/restore.sh backups/pihole-unbound-YYYYMMDD-HHMMSS.tar.gz
-```
-
-Mit `make`:
+### Mit Make
 
 ```bash
 make init
@@ -397,7 +523,7 @@ make logs
 make backup
 ```
 
-Direkt mit Docker Compose:
+### Direkt mit Docker Compose
 
 ```bash
 docker compose build
@@ -410,31 +536,38 @@ docker compose restart unbound
 docker compose down
 ```
 
-## Updates
+---
 
-Das Projekt verwendet absichtlich gepinnte Basisversionen statt `latest`. Dadurch wird ein produktiver Resolver nicht unbemerkt auf eine neue Haupt- oder Nebenversion umgestellt.
+## 🔄 Updates
 
-Vor einem Upgrade:
+Das Projekt verwendet bewusst gepinnte Basisversionen statt `latest`. Dadurch wird ein produktiver DNS-Resolver nicht unbemerkt durch einen Image-Neubau auf eine neue Version umgestellt.
 
-1. Backup erstellen.
-2. Release Notes der verwendeten Komponenten prüfen.
-3. Version im jeweiligen Dockerfile aktualisieren.
-4. `docker compose config` ausführen.
-5. Images neu bauen.
-6. Container neu erstellen/starten.
-7. DNS- und DNSSEC-Test ausführen.
-8. Logs auf Fehler prüfen.
+Empfohlener Upgrade-Ablauf:
 
 ```bash
 ./scripts/backup.sh
+
+git pull
+
+docker compose config
+
 ./scripts/build.sh --pull
 ./scripts/start.sh
 ./scripts/test-dns.sh
 ```
 
+Danach Logs prüfen:
+
+```bash
+docker compose logs --tail=100 pihole
+docker compose logs --tail=100 unbound
+```
+
 Weitere Hinweise: [`docs/UPDATES.md`](docs/UPDATES.md).
 
-## Backup und Restore
+---
+
+## 💾 Backup und Restore
 
 Backup erstellen:
 
@@ -448,32 +581,48 @@ Restore:
 ./scripts/restore.sh backups/pihole-unbound-YYYYMMDD-HHMMSS.tar.gz
 ```
 
-Backups können Pi-hole-Konfiguration und sensible Daten enthalten. Sie dürfen nicht in Git eingecheckt oder öffentlich geteilt werden.
+> [!WARNING]
+> Backups können Pi-hole-Konfiguration, DNS-Daten und sensible Zugangsinformationen enthalten. Sie gehören nicht in ein öffentliches Repository.
 
-## Sicherheit und Datenschutz
+---
 
-Pi-hole kann DNS-Anfragen protokollieren. Wer weniger Client- oder Domain-Daten speichern möchte, kann die Pi-hole-Privacy-Einstellungen anpassen oder in `.env` setzen:
+## 🔒 Sicherheit
+
+Pi-hole kann DNS-Anfragen protokollieren. Wer weniger Client- oder Domain-Daten speichern möchte, kann das Query Logging deaktivieren:
 
 ```dotenv
 PIHOLE_QUERY_LOGGING=false
 ```
 
-Dieses Projekt verbessert DNS-Privatsphäre und Filterung, ersetzt aber keine Firewall, kein VPN, keine Endpoint-Security und keinen Browser-Schutz.
+### Sicherheitsgrenzen
 
-Zu beachten:
+Dieses Setup verbessert DNS-Privatsphäre und Filterung, aber:
 
 - DNS zwischen Clients und Pi-hole ist im LAN standardmäßig unverschlüsselt.
 - Rekursive DNS-Anfragen an Root-, TLD- und autoritative Server erfolgen klassisch über DNS.
-- Clients mit eigenem DoH/DoT können den lokalen DNS-Resolver gegebenenfalls umgehen.
+- Clients mit eigenem DoH/DoT können den lokalen Resolver gegebenenfalls umgehen.
 - DNS-Blocklisten sind kein vollständiger Malware- oder Phishing-Schutz.
+- Host-Firewall, Betriebssystem-Updates und sichere Netzwerksegmentierung bleiben weiterhin wichtig.
 
-## Projektstruktur
+Sicherheitsprobleme bitte nicht öffentlich als normalen Issue veröffentlichen. Siehe [`SECURITY.md`](SECURITY.md).
+
+---
+
+## 📁 Projektstruktur
 
 ```text
 PiHole-Unbound-Docker/
-├── compose.yaml
-├── .env.example
-├── Makefile
+├── .github/
+│   └── workflows/
+│       ├── release.yml
+│       └── validate.yml
+├── docs/
+│   ├── INSTALLATION.md
+│   ├── ARCHITECTURE.md
+│   ├── NETWORK.md
+│   ├── TROUBLESHOOTING.md
+│   ├── UPDATES.md
+│   └── GITHUB_PUBLISHING.md
 ├── pihole/
 │   └── Dockerfile
 ├── unbound/
@@ -491,31 +640,42 @@ PiHole-Unbound-Docker/
 │   ├── backup.sh
 │   ├── restore.sh
 │   └── update.sh
-├── docs/
-│   ├── INSTALLATION.md
-│   ├── ARCHITECTURE.md
-│   ├── NETWORK.md
-│   ├── TROUBLESHOOTING.md
-│   ├── UPDATES.md
-│   └── GITHUB_PUBLISHING.md
-├── LICENSE
-├── ATTRIBUTION.md
-├── NOTICE
-└── THIRD_PARTY.md
+├── .env.example
+├── compose.yaml
+├── Makefile
+├── README.md
+├── SECURITY.md
+├── CONTRIBUTING.md
+└── LICENSE
 ```
 
-## Dokumentation
+---
 
-- [Installation und Build](docs/INSTALLATION.md)
-- [Architektur](docs/ARCHITECTURE.md)
-- [Netzwerk und Router](docs/NETWORK.md)
-- [Troubleshooting](docs/TROUBLESHOOTING.md)
-- [Updates](docs/UPDATES.md)
-- [GitHub-Veröffentlichung](docs/GITHUB_PUBLISHING.md)
+## 📚 Dokumentation
 
-## Lizenz und Attribution
+| Dokument | Inhalt |
+|---|---|
+| [`INSTALLATION.md`](docs/INSTALLATION.md) | vollständige Installation, Docker-Setup, Build und Start |
+| [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) | DNS-Fluss und technische Architektur |
+| [`NETWORK.md`](docs/NETWORK.md) | Router-, DHCP- und Client-Konfiguration |
+| [`TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) | häufige Fehler und Port-53-Probleme |
+| [`UPDATES.md`](docs/UPDATES.md) | kontrollierte Updates und Versionswechsel |
+| [`SECURITY.md`](SECURITY.md) | Sicherheitsrichtlinie und Meldung von Schwachstellen |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Beiträge zum Projekt |
 
-Die von BlackRabbitZ erstellten Teile dieses Repositories stehen unter GNU GPL Version 3 (`GPL-3.0-only`) plus den zusätzlichen Attribution-Bedingungen in `ATTRIBUTION.md` gemäß GPLv3 §7(b)/(c).
+---
+
+## 🤝 Mitwirken
+
+Pull Requests und konstruktive Verbesserungen sind willkommen.
+
+Vor größeren Änderungen bitte zuerst [`CONTRIBUTING.md`](CONTRIBUTING.md) lesen. Fehler oder Verbesserungsvorschläge können über die [GitHub Issues](https://github.com/BlackRabbitZ/PiHole-Unbound-Docker/issues) eingereicht werden.
+
+---
+
+## 📜 Lizenz und Attribution
+
+Die von **BlackRabbitZ** erstellten Teile dieses Repositories stehen unter **GNU GPL Version 3 (`GPL-3.0-only`)** plus den zusätzlichen Attribution-Bedingungen in [`ATTRIBUTION.md`](ATTRIBUTION.md) gemäß GPLv3 §7(b)/(c).
 
 Bei Weitergabe oder Veröffentlichung eines Forks muss mindestens erhalten bleiben:
 
@@ -524,19 +684,28 @@ Original work: PiHole-Unbound-Docker by BlackRabbitZ
 Original repository: https://github.com/BlackRabbitZ/PiHole-Unbound-Docker
 ```
 
-Pi-hole, Unbound, Alpine Linux und weitere Drittkomponenten behalten ihre jeweiligen Lizenzen. Siehe `THIRD_PARTY.md`.
-
-## Technische Quellen
-
-- Pi-hole Docker: https://docs.pi-hole.net/docker/
-- Pi-hole Docker-Konfiguration: https://docs.pi-hole.net/docker/configuration/
-- Pi-hole + Unbound: https://docs.pi-hole.net/guides/dns/unbound/
-- Pi-hole Docker Repository: https://github.com/pi-hole/docker-pi-hole
-- Unbound: https://github.com/NLnetLabs/unbound
-- Alpine Linux: https://alpinelinux.org/
-- Docker Engine Installation: https://docs.docker.com/engine/install/
-- Docker Compose Installation: https://docs.docker.com/compose/install/
+Pi-hole, Unbound, Alpine Linux und weitere Drittkomponenten behalten ihre jeweiligen Lizenzen. Siehe [`THIRD_PARTY.md`](THIRD_PARTY.md).
 
 ---
 
-BlackRabbitZ · Security / Infrastructure Projects
+## 🔗 Technische Grundlagen
+
+- [Pi-hole Docker Documentation](https://docs.pi-hole.net/docker/)
+- [Pi-hole Docker Configuration](https://docs.pi-hole.net/docker/configuration/)
+- [Pi-hole + Unbound Guide](https://docs.pi-hole.net/guides/dns/unbound/)
+- [Official Pi-hole Docker Repository](https://github.com/pi-hole/docker-pi-hole)
+- [NLnet Labs Unbound](https://github.com/NLnetLabs/unbound)
+- [Docker Engine](https://docs.docker.com/engine/install/)
+- [Docker Compose](https://docs.docker.com/compose/install/)
+
+---
+
+<div align="center">
+
+### Built for privacy, control and reproducibility.
+
+**BlackRabbitZ · Security / Infrastructure Projects**
+
+[⬆ Nach oben](#️-pi-hole--unbound-in-docker)
+
+</div>
