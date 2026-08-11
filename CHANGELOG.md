@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.1] - 2026-08-11
+
+### Fixed
+- ShellCheck SC1007 warnings in repository helper scripts.
+- Documented intentional container-side command substitution to suppress false-positive SC2016 warnings.
+
 ## 1.0.0 – 2026-08-11
 
 - Erstveröffentlichung

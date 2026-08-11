@@ -24,6 +24,8 @@ check() {
 check "Pi-hole beantwortet lokale DNS-Anfrage" \
   docker exec blackrabbitz-pihole dig @127.0.0.1 pi.hole A +time=3 +tries=1 +short
 
+# The command substitution below intentionally runs inside the container.
+# shellcheck disable=SC2016
 check "Unbound löst rekursiv auf" \
   docker exec blackrabbitz-unbound sh -c 'test -n "$(dig @127.0.0.1 -p 5335 example.com A +time=5 +tries=1 +short)"'
 
@@ -33,6 +35,8 @@ check "DNSSEC gültige Zone wird akzeptiert" \
 check "DNSSEC ungültige Zone wird verworfen" \
   docker exec blackrabbitz-unbound sh -c 'dig @127.0.0.1 -p 5335 fail01.dnssec.works A +time=5 +tries=1 | grep -q "status: SERVFAIL"'
 
+# The command substitution below intentionally runs inside the container.
+# shellcheck disable=SC2016
 check "Pi-hole kann über Unbound Internet-DNS auflösen" \
   docker exec blackrabbitz-pihole sh -c 'test -n "$(dig @127.0.0.1 example.com A +time=5 +tries=1 +short)"'
 
