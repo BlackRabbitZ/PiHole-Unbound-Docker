@@ -1,0 +1,20 @@
+# Lokale Konfiguration und Geheimnisse
+.env
+secrets/*
+!secrets/.gitkeep
+
+# Laufzeitdaten
+etc-pihole/
+backups/*
+!backups/.gitkeep
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Temporäre Dateien
+*.log
+*.tmp
+*.swp

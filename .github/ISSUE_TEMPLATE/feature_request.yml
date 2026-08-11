@@ -1,0 +1,22 @@
+name: Feature vorschlagen
+description: Verbesserung für das Pi-hole/Unbound-Setup vorschlagen
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Welches Problem soll gelöst werden?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Vorschlag
+    validations:
+      required: true
+  - type: textarea
+    id: security
+    attributes:
+      label: Sicherheitsauswirkungen
+      description: Ändert das Feature Ports, Privilegien, Secrets, DNS-Pfade oder externe Images?

@@ -1,0 +1,23 @@
+PiHole-Unbound-Docker
+Copyright (C) 2026 BlackRabbitZ
+Original project: https://github.com/BlackRabbitZ/PiHole-Unbound-Docker
+
+LICENSE: GNU General Public License Version 3 (GPL-3.0-only).
+See LICENSE for the complete unmodified GPLv3 text.
+
+ADDITIONAL ATTRIBUTION TERMS UNDER GPLv3 SECTION 7(b) AND 7(c)
+
+When conveying, redistributing, publishing, or distributing this work or a
+derivative work, preserve a reasonable and readily visible attribution with
+at least:
+
+    Original work: PiHole-Unbound-Docker by BlackRabbitZ
+    Original repository: https://github.com/BlackRabbitZ/PiHole-Unbound-Docker
+
+Existing copyright, license, and attribution notices for material authored by
+BlackRabbitZ must not be removed in a way that obscures original authorship.
+Modified versions must not be represented as an unmodified original version by
+BlackRabbitZ. Attribution does not imply endorsement.
+
+Third-party projects retain their own licenses and copyrights.
+See THIRD_PARTY.md and ATTRIBUTION.md.

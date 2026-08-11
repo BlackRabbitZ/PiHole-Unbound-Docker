@@ -1,0 +1,41 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: ShellCheck installieren
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Shell-Skripte prüfen
+        run: shellcheck scripts/*.sh unbound/entrypoint.sh
+
+      - name: Statische Repository-Prüfung
+        run: python3 scripts/validate.py
+
+      - name: Temporäres Secret für Compose-Validierung
+        run: |
+          mkdir -p secrets
+          printf 'ci-only-not-a-real-secret\n' > secrets/pihole_webpassword.txt
+          cp .env.example .env
+
+      - name: Docker-Compose-Konfiguration validieren
+        run: docker compose config --quiet
+
+      - name: Unbound-Container bauen
+        run: docker build --pull -f unbound/Dockerfile .
+
+      - name: Pi-hole-Wrapper bauen
+        run: docker build --pull -f pihole/Dockerfile .

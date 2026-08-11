@@ -1,0 +1,22 @@
+version: 2
+updates:
+  - package-ecosystem: "docker"
+    directory: "/pihole"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "pihole"
+  - package-ecosystem: "docker"
+    directory: "/unbound"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "unbound"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"

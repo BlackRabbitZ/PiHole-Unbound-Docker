@@ -1,0 +1,44 @@
+name: Fehler melden
+description: Reproduzierbaren Fehler im Repository melden
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: "Keine Secrets, privaten DNS-Logs oder internen Netzwerkdaten posten. Sicherheitslücken bitte gemäß SECURITY.md privat melden."
+  - type: input
+    id: host
+    attributes:
+      label: Host-System
+      placeholder: "z. B. Debian 13 / Raspberry Pi OS / Docker Desktop"
+    validations:
+      required: true
+  - type: input
+    id: docker
+    attributes:
+      label: Docker-Version
+      placeholder: "docker version"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problembeschreibung
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduktion
+      description: Schritte und relevante, bereinigte Ausgaben
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Vorprüfung
+      options:
+        - label: "Ich habe docs/TROUBLESHOOTING.md geprüft."
+          required: true
+        - label: "Ich habe keine Passwörter/Secrets/private DNS-Daten eingefügt."
+          required: true

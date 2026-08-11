@@ -1,0 +1,83 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2026 BlackRabbitZ
+# Zusätzliche Attribution-Bedingungen: siehe ATTRIBUTION.md
+
+name: blackrabbitz-pihole-unbound
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  unbound:
+    build:
+      context: .
+      dockerfile: unbound/Dockerfile
+      args:
+        UNBOUND_THREADS: ${UNBOUND_THREADS:-1}
+        UNBOUND_VERBOSITY: ${UNBOUND_VERBOSITY:-0}
+    container_name: blackrabbitz-unbound
+    hostname: unbound
+    restart: unless-stopped
+    expose:
+      - "5335/tcp"
+      - "5335/udp"
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+    volumes:
+      - unbound-state:/var/lib/unbound
+    tmpfs:
+      - /run:size=16m,mode=0755
+      - /tmp:size=16m,mode=1777
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - dns_backend
+    logging: *default-logging
+
+  pihole:
+    build:
+      context: .
+      dockerfile: pihole/Dockerfile
+    container_name: blackrabbitz-pihole
+    hostname: pi.hole
+    restart: unless-stopped
+    depends_on:
+      unbound:
+        condition: service_healthy
+    ports:
+      - "${PIHOLE_BIND_IP:-0.0.0.0}:${PIHOLE_DNS_PORT:-53}:53/tcp"
+      - "${PIHOLE_BIND_IP:-0.0.0.0}:${PIHOLE_DNS_PORT:-53}:53/udp"
+      - "${PIHOLE_BIND_IP:-0.0.0.0}:${PIHOLE_HTTP_PORT:-8080}:80/tcp"
+      - "${PIHOLE_BIND_IP:-0.0.0.0}:${PIHOLE_HTTPS_PORT:-8443}:443/tcp"
+    environment:
+      TZ: ${TZ:-Europe/Berlin}
+      WEBPASSWORD_FILE: pihole_webpassword
+      FTLCONF_dns_listeningMode: "ALL"
+      FTLCONF_dns_upstreams: "unbound#5335"
+      # Unbound validiert DNSSEC. Pi-hole validiert deshalb standardmäßig nicht nochmals.
+      FTLCONF_dns_dnssec: ${PIHOLE_DNSSEC:-false}
+      FTLCONF_dns_queryLogging: ${PIHOLE_QUERY_LOGGING:-true}
+    secrets:
+      - pihole_webpassword
+    volumes:
+      - ./etc-pihole:/etc/pihole
+    networks:
+      - dns_backend
+    logging: *default-logging
+
+networks:
+  dns_backend:
+    name: blackrabbitz-dns-backend
+    driver: bridge
+
+volumes:
+  unbound-state:
+    name: blackrabbitz-unbound-state
+
+secrets:
+  pihole_webpassword:
+    file: ./secrets/pihole_webpassword.txt
