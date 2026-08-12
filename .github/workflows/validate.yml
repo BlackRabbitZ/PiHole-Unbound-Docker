@@ -18,6 +18,11 @@ jobs:
       - name: Repository auschecken
         uses: actions/checkout@v7
 
+      # GitHub behält das Execute-Bit nicht zuverlässig bei, wenn Dateien
+      # z. B. über die Weboberfläche hochgeladen/ersetzt wurden.
+      - name: Shell-Skripte ausführbar machen
+        run: chmod +x scripts/*.sh unbound/entrypoint.sh
+
       - name: ShellCheck installieren
         run: sudo apt-get update && sudo apt-get install -y shellcheck
 
@@ -63,7 +68,9 @@ jobs:
           test "$(docker inspect --format '{{.State.Health.Status}}' blackrabbitz-pihole)" = "healthy"
 
       - name: DNS-, Rekursions- und DNSSEC-Integrationstest
-        run: ./scripts/test-dns.sh
+        # Explizit über /bin/sh starten: funktioniert auch dann, wenn ein
+        # späterer Commit versehentlich das Execute-Bit wieder verliert.
+        run: sh ./scripts/test-dns.sh
 
       - name: Logs bei Fehlern ausgeben
         if: failure()
