@@ -40,6 +40,16 @@ jobs:
       - name: Docker-Compose-Konfiguration validieren
         run: docker compose config --quiet
 
+      - name: NAS-/Portainer-Standalone-Compose validieren
+        run: |
+          PIHOLE_DNS_PORT=15353 \
+          PIHOLE_HTTP_PORT=18081 \
+          PIHOLE_HTTPS_PORT=18444 \
+          docker compose -f compose.nas.yaml config --quiet
+
+      - name: NAS-/Portainer-Standalone-Images prüfen
+        run: docker compose -f compose.nas.yaml pull --quiet
+
       - name: Images bauen
         run: docker compose build --pull
 

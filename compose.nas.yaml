@@ -1,0 +1,84 @@
+# SPDX-License-Identifier: GPL-3.0-only
+# Copyright (C) 2026 BlackRabbitZ
+# Zusätzliche Attribution-Bedingungen: siehe ATTRIBUTION.md
+#
+# Standalone-Stack für NAS / Portainer
+# ------------------------------------
+# Diese Datei benötigt KEINE lokalen Dockerfiles, Secrets oder Konfigurationsdateien.
+# Docker zieht fertige Images und speichert die Pi-hole-Konfiguration in einem
+# benannten Docker-Volume.
+#
+# Start:
+#   docker compose -f compose.nas.yaml up -d
+#
+# Portainer:
+#   Stacks -> Add stack -> Web editor -> Inhalt dieser Datei einfügen -> Deploy
+#
+# WICHTIG:
+#   - TCP/UDP Port 53 muss auf dem NAS frei sein.
+#   - Ohne fest gesetztes Webpasswort erzeugt Pi-hole beim ersten Start ein
+#     zufälliges Passwort. Es steht im Pi-hole-Container-Log.
+#   - Auf einzelnen Synology-Systemen kann PIHOLE_DNSMASQ_USER=root erforderlich sein.
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  unbound:
+    # Gepinnt auf den am 12.08.2026 aktuellen Multi-Arch-Main-Build.
+    # Unterstützt u. a. amd64 und arm64.
+    image: ghcr.io/klutchell/unbound:main@sha256:c3238b835775a518cdf4cf7ab02b5507e55b746e93ff913bbf10ccf345d21642
+    restart: unless-stopped
+    expose:
+      - "53/tcp"
+      - "53/udp"
+    healthcheck:
+      # Lokaler Readiness-Test ohne externe Testdomain.
+      test: ["CMD", "dig", "@127.0.0.1", "localhost", "A", "+time=2", "+tries=1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+    networks:
+      - dns_backend
+    logging: *default-logging
+
+  pihole:
+    image: pihole/pihole:2026.07.2
+    restart: unless-stopped
+    depends_on:
+      unbound:
+        condition: service_healthy
+        restart: true
+    ports:
+      - "${PIHOLE_BIND_IP:-0.0.0.0}:${PIHOLE_DNS_PORT:-53}:53/tcp"
+      - "${PIHOLE_BIND_IP:-0.0.0.0}:${PIHOLE_DNS_PORT:-53}:53/udp"
+      - "${PIHOLE_BIND_IP:-0.0.0.0}:${PIHOLE_HTTP_PORT:-8080}:80/tcp"
+      - "${PIHOLE_BIND_IP:-0.0.0.0}:${PIHOLE_HTTPS_PORT:-8443}:443/tcp"
+    environment:
+      TZ: "${TZ:-Europe/Berlin}"
+      FTLCONF_dns_listeningMode: "ALL"
+      FTLCONF_dns_upstreams: "unbound#53"
+      # DNSSEC wird von Unbound validiert; Pi-hole validiert nicht doppelt.
+      FTLCONF_dns_dnssec: "false"
+      FTLCONF_dns_queryLogging: "${PIHOLE_QUERY_LOGGING:-true}"
+      # Standard ist 'pihole'. Bei einzelnen Synology-Systemen kann 'root'
+      # erforderlich sein: PIHOLE_DNSMASQ_USER=root als Stack-Variable setzen.
+      DNSMASQ_USER: "${PIHOLE_DNSMASQ_USER:-pihole}"
+      # Absichtlich KEIN festes Standard-Webpasswort:
+      # Pi-hole erzeugt beim ersten Start ein zufälliges Passwort und loggt es.
+    volumes:
+      - pihole-data:/etc/pihole
+    networks:
+      - dns_backend
+    logging: *default-logging
+
+networks:
+  dns_backend:
+    driver: bridge
+
+volumes:
+  pihole-data:

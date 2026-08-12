@@ -17,7 +17,7 @@
 
 Ein reproduzierbares und gehärtetes Docker-Setup für **Pi-hole** als netzwerkweiten DNS-Filter vor einem eigenen **rekursiven Unbound-Resolver**.
 
-[Installation](#-installation) · [Build](#-docker-images-bauen) · [Architektur](#-architektur) · [Betrieb](#-betrieb) · [Dokumentation](#-dokumentation) · [Sicherheit](#-sicherheit)
+[Installation](#-installation) · [NAS/Portainer](#-nas--portainer-standalone) · [Build](#-docker-images-bauen) · [Architektur](#-architektur) · [Betrieb](#-betrieb) · [Dokumentation](#-dokumentation) · [Sicherheit](#-sicherheit)
 
 </div>
 
@@ -36,6 +36,7 @@ Damit bleibt die DNS-Auflösung unter eigener Kontrolle. Pi-hole übernimmt Filt
 | Bereich | Umsetzung |
 |---|---|
 | 🧱 **Deployment** | Docker Compose v2 mit getrennten Pi-hole- und Unbound-Images |
+| 📦 **Standalone** | Zusätzliche einzelne `compose.nas.yaml` für NAS, Portainer und einfache Docker-Stacks |
 | 🔍 **DNS-Filterung** | Pi-hole v6 für Werbung, Tracking und unerwünschte Domains |
 | 🌐 **DNS-Auflösung** | Eigener rekursiver Unbound-Resolver ohne öffentlichen Upstream |
 | 🔐 **DNSSEC** | Validierung durch Unbound |
@@ -54,6 +55,7 @@ Damit bleibt die DNS-Auflösung unter eigener Kontrolle. Pi-hole übernimmt Filt
 - [Sicherheitsmerkmale](#-sicherheitsmerkmale)
 - [Voraussetzungen](#-voraussetzungen)
 - [Installation](#-installation)
+- [NAS / Portainer Standalone](#-nas--portainer-standalone)
 - [Docker installieren](#1-docker-installieren)
 - [Repository klonen](#2-repository-klonen)
 - [Projekt initialisieren](#3-projekt-initialisieren)
@@ -171,6 +173,44 @@ git --version
 
 > [!WARNING]
 > Unter Linux kann beispielsweise `systemd-resolved` Port 53 belegen. Prüfe vor dem Start, ob DNS-Port 53 bereits verwendet wird. Weitere Hinweise findest du unter [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md).
+
+---
+
+# 📦 NAS / Portainer Standalone
+
+Für **Portainer, Synology, QNAP, Unraid, TrueNAS SCALE** und andere Docker-fähige NAS-Systeme gibt es zusätzlich:
+
+**➡️ [`compose.nas.yaml`](compose.nas.yaml)**
+
+Diese Variante benötigt keine lokalen Dockerfiles, keine Secret-Datei und keine zusätzliche Unbound-Konfiguration. Fertige Multi-Arch-Images werden direkt geladen; die Pi-hole-Daten landen in einem benannten Docker-Volume.
+
+### Portainer
+
+```text
+Stacks → Add stack → Web editor → compose.nas.yaml einfügen → Deploy the stack
+```
+
+### Docker Compose
+
+```bash
+docker compose -f compose.nas.yaml pull
+docker compose -f compose.nas.yaml up -d
+```
+
+Das Dashboard ist mit den Standardwerten anschließend unter folgendem Port erreichbar:
+
+```text
+http://NAS-IP:8080/admin/
+```
+
+Die Standalone-Datei enthält absichtlich kein universelles Standardpasswort. Bei einer frischen Installation erzeugt Pi-hole ein zufälliges Passwort, das im Container-Log angezeigt wird.
+
+> [!WARNING]
+> Für den normalen DNS-Betrieb müssen `53/tcp` und `53/udp` auf dem NAS frei sein.
+
+Eine vollständige Anleitung inklusive Portainer-Schritten, Synology-Hinweis, Passwort, Port-Konflikten und DNSSEC-Test findest du hier:
+
+**➡️ [`docs/NAS-PORTAINER.md`](docs/NAS-PORTAINER.md)**
 
 ---
 
@@ -645,6 +685,7 @@ PiHole-Unbound-Docker/
 │   └── update.sh
 ├── .env.example
 ├── compose.yaml
+├── compose.nas.yaml
 ├── Makefile
 ├── README.md
 ├── SECURITY.md
@@ -662,6 +703,7 @@ PiHole-Unbound-Docker/
 | [`ARCHITECTURE.md`](docs/ARCHITECTURE.md) | DNS-Fluss und technische Architektur |
 | [`NETWORK.md`](docs/NETWORK.md) | Router-, DHCP- und Client-Konfiguration |
 | [`TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) | häufige Fehler und Port-53-Probleme |
+| [`NAS-PORTAINER.md`](docs/NAS-PORTAINER.md) | Ein-Datei-Deployment für Portainer, Synology, QNAP, Unraid und TrueNAS |
 | [`UPDATES.md`](docs/UPDATES.md) | kontrollierte Updates und Versionswechsel |
 | [`SECURITY.md`](SECURITY.md) | Sicherheitsrichtlinie und Meldung von Schwachstellen |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Beiträge zum Projekt |
