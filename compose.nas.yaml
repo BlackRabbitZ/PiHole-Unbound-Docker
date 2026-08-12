@@ -36,11 +36,13 @@ services:
       - "53/tcp"
       - "53/udp"
     healthcheck:
-      # Lokaler Readiness-Test ohne externe Testdomain.
-      test: ["CMD", "dig", "@127.0.0.1", "localhost", "A", "+time=2", "+tries=1"]
+      # Das Image enthält "drill-hc" speziell für Docker-Healthchecks.
+      # localhost ist eine von Unbound standardmäßig lokal bereitgestellte Zone,
+      # daher hängt dieser Readiness-Test nicht von einer externen Domain ab.
+      test: ["CMD", "drill-hc", "@127.0.0.1", "localhost"]
       interval: 30s
       timeout: 5s
-      start_period: 20s
+      start_period: 30s
       retries: 5
     networks:
       - dns_backend
