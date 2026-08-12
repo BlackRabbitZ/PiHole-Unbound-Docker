@@ -1,9 +1,12 @@
 SHELL := /bin/sh
 
-.PHONY: init build rebuild up down status logs test backup update validate
+.PHONY: init preflight build rebuild up down status logs test backup update validate
 
 init:
 	./scripts/init.sh
+
+preflight:
+	./scripts/preflight.sh
 
 build:
 	./scripts/build.sh

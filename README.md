@@ -44,7 +44,7 @@ Damit bleibt die DNS-Auflösung unter eigener Kontrolle. Pi-hole übernimmt Filt
 | 💾 **Persistenz** | Pi-hole-Konfiguration und Unbound-Trust-Anchor persistent gespeichert |
 | 🧪 **Health Checks** | Status-, DNS- und DNSSEC-Tests über Skripte |
 | 📦 **Backups** | Backup- und Restore-Workflow enthalten |
-| ✅ **CI** | Automatische Konfigurations- und Build-Prüfung mit GitHub Actions |
+| ✅ **CI** | Konfiguration, Image-Build, Container-Health sowie DNS-/DNSSEC-End-to-End-Test mit GitHub Actions |
 
 ---
 
@@ -140,7 +140,7 @@ Das Setup ist bewusst restriktiver als eine minimale Standardinstallation:
 - Docker Secret für das Pi-hole-Webpasswort
 - persistente Pi-hole-Konfiguration
 - Docker-Logrotation
-- automatisierte Konfigurations- und Build-Prüfungen via GitHub Actions
+- automatisierte Konfigurations-, Build-, Health- und DNS/DNSSEC-Integrationstests via GitHub Actions
 
 > [!IMPORTANT]
 > Dieses Projekt erhöht die Kontrolle über DNS-Auflösung und Filterung. Es ersetzt keine Firewall, kein VPN, keine Endpoint-Security und keinen Browser-Schutz.
@@ -297,6 +297,8 @@ Nachdem die Images erfolgreich gebaut wurden:
 ```bash
 ./scripts/start.sh
 ```
+
+`start.sh` führt automatisch `./scripts/preflight.sh` aus. Dabei werden Docker/Compose, Secret, Compose-Konfiguration und ein möglicher Konflikt am konfigurierten DNS-Host-Port geprüft.
 
 Das entspricht im Wesentlichen:
 
@@ -500,6 +502,7 @@ Clients sollen ausschließlich mit Pi-hole kommunizieren. Pi-hole erreicht Unbou
 | Aufgabe | Befehl |
 |---|---|
 | Initialisieren | `./scripts/init.sh` |
+| Preflight / Port- und Compose-Prüfung | `./scripts/preflight.sh` |
 | Images bauen | `./scripts/build.sh` |
 | Images mit Pull bauen | `./scripts/build.sh --pull` |
 | Container starten | `./scripts/start.sh` |

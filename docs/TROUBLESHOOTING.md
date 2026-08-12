@@ -1,5 +1,14 @@
 # Troubleshooting
 
+## Preflight zuerst ausführen
+
+```bash
+./scripts/preflight.sh
+```
+
+Der Preflight prüft Docker/Compose, das Pi-hole-Secret, die Compose-Konfiguration und – soweit `ss` verfügbar ist – Konflikte am konfigurierten DNS-Host-Port.
+
+
 ## Port 53 ist bereits belegt
 
 Prüfen:
@@ -33,9 +42,12 @@ docker compose ps
 
 ## Unbound ist unhealthy
 
+Der Docker-Healthcheck prüft bewusst nur die lokale Dienstbereitschaft über die eingebaute `localhost`-Zone. Dadurch hängt der Containerstatus nicht von einer externen Testdomain ab.
+
 Direkt testen:
 
 ```bash
+docker exec blackrabbitz-unbound dig @127.0.0.1 -p 5335 localhost A
 docker exec blackrabbitz-unbound dig @127.0.0.1 -p 5335 example.com A
 ```
 
@@ -96,3 +108,12 @@ secrets/pihole_webpassword.txt
 ```
 
 Diese Datei niemals committen oder öffentlich teilen.
+
+
+## Vollständiger End-to-End-Test
+
+```bash
+./scripts/test-dns.sh
+```
+
+Das Skript prüft lokalen Unbound-Readiness, echte rekursive Auflösung, gültiges und absichtlich ungültiges DNSSEC, den Pi-hole-Upstream sowie die Auflösung Pi-hole → Unbound → Internet.

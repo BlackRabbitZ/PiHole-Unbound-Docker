@@ -34,6 +34,14 @@ services:
     read_only: true
     security_opt:
       - no-new-privileges:true
+    healthcheck:
+      # Reiner Readiness-Check: prüft den lokalen Unbound-Dienst ohne Abhängigkeit
+      # von externen Testdomains. Rekursion und DNSSEC testet scripts/test-dns.sh.
+      test: ["CMD-SHELL", "dig @127.0.0.1 -p 5335 localhost A +time=2 +tries=1 +short | grep -qx '127.0.0.1'"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
     networks:
       - dns_backend
     logging: *default-logging
@@ -48,6 +56,7 @@ services:
     depends_on:
       unbound:
         condition: service_healthy
+        restart: true
     ports:
       - "${PIHOLE_BIND_IP:-0.0.0.0}:${PIHOLE_DNS_PORT:-53}:53/tcp"
       - "${PIHOLE_BIND_IP:-0.0.0.0}:${PIHOLE_DNS_PORT:-53}:53/udp"
@@ -59,12 +68,20 @@ services:
       FTLCONF_dns_listeningMode: "ALL"
       FTLCONF_dns_upstreams: "unbound#5335"
       # Unbound validiert DNSSEC. Pi-hole validiert deshalb standardmäßig nicht nochmals.
-      FTLCONF_dns_dnssec: ${PIHOLE_DNSSEC:-false}
-      FTLCONF_dns_queryLogging: ${PIHOLE_QUERY_LOGGING:-true}
+      FTLCONF_dns_dnssec: "${PIHOLE_DNSSEC:-false}"
+      FTLCONF_dns_queryLogging: "${PIHOLE_QUERY_LOGGING:-true}"
     secrets:
       - pihole_webpassword
     volumes:
       - ./etc-pihole:/etc/pihole
+    healthcheck:
+      # Entspricht dem aktuellen offiziellen Pi-hole-Docker-Healthcheck und wird
+      # hier explizit definiert, damit der Stack selbstbeschreibend bleibt.
+      test: ["CMD-SHELL", "dig -p $$(pihole-FTL --config dns.port) +short +norecurse +retry=0 @127.0.0.1 pi.hole | grep -q ."]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
     networks:
       - dns_backend
     logging: *default-logging
