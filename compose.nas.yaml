@@ -52,7 +52,6 @@ services:
     depends_on:
       unbound:
         condition: service_healthy
-        restart: true
     ports:
       - "${PIHOLE_BIND_IP:-0.0.0.0}:${PIHOLE_DNS_PORT:-53}:53/tcp"
       - "${PIHOLE_BIND_IP:-0.0.0.0}:${PIHOLE_DNS_PORT:-53}:53/udp"
