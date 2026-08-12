@@ -60,7 +60,7 @@ check "Pi-hole-Upstream zeigt auf Unbound" \
 
 check "Pi-hole beantwortet lokale DNS-Anfrage" \
   docker compose exec -T pihole sh -ec \
-  'dig -p "$(pihole-FTL --config dns.port)" +short +norecurse +retry=0 @127.0.0.1 pi.hole | grep -q .'
+  "dig -p \"\$(pihole-FTL --config dns.port)\" +short +norecurse +retry=0 @127.0.0.1 pi.hole | grep -q ."
 
 # The command substitution below intentionally runs inside the container.
 # shellcheck disable=SC2016
