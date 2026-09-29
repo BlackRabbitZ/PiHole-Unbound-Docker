@@ -4,7 +4,7 @@
 
 # Bewusst auf einen veröffentlichten Pi-hole-Docker-Release gepinnt.
 # Bei Updates Release Notes prüfen und diese Zeile aktualisieren.
-FROM pihole/pihole:2026.07.2
+FROM pihole/pihole:2026.09.0
 
 LABEL org.opencontainers.image.title="BlackRabbitZ Pi-hole + Unbound"
 LABEL org.opencontainers.image.description="Pi-hole v6 als DNS-Filter vor einem rekursiven Unbound-Resolver"
