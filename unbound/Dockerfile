@@ -2,7 +2,7 @@
 # Copyright (C) 2026 BlackRabbitZ
 # Zusätzliche Attribution-Bedingungen: siehe ../ATTRIBUTION.md
 
-FROM alpine:3.24.1
+FROM alpine:3.24.3
 
 ARG UNBOUND_THREADS=1
 ARG UNBOUND_VERBOSITY=0
